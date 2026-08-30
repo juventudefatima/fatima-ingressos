@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabaseClient'
 import { listProductsByEvent } from '@/services/products'
+import { listMyEvents } from '@/services/events'
 import { findOrCreateCustomer, createSale } from '@/services/sales'
 import type { EventItem, Product, PaymentMethod } from '@/types'
 import { Card } from '@/components/ui/Card'
@@ -34,16 +35,13 @@ export default function CashierPage() {
   const [receipt, setReceipt] = useState<Receipt | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('events')
-      .select('*')
-      .eq('status', 'published')
-      .order('event_date')
-      .then(({ data, error }) => {
-        if (error) toast.error(error.message)
-        setEvents((data as EventItem[]) || [])
-        if (data && data.length > 0) setEventId(data[0].id)
+    listMyEvents()
+      .then((data) => {
+        const published = data.filter((e) => e.status === 'published')
+        setEvents(published)
+        if (published.length > 0) setEventId(published[0].id)
       })
+      .catch((err) => toast.error(err.message))
   }, [])
 
   useEffect(() => {

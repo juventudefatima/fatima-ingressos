@@ -7,6 +7,14 @@ export async function listEvents(): Promise<EventItem[]> {
   return data as EventItem[]
 }
 
+// Usado por Caixa e Validador: admin vê todos os eventos; cashier/validator
+// só veem os eventos em que o admin atribuiu eles (tabela event_staff).
+export async function listMyEvents(): Promise<EventItem[]> {
+  const { data, error } = await supabase.rpc('list_my_events')
+  if (error) throw error
+  return data as EventItem[]
+}
+
 export async function createEvent(input: {
   name: string
   description?: string

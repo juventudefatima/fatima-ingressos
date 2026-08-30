@@ -35,6 +35,72 @@ export async function setUserActive(userId: string, active: boolean) {
   if (error) throw new Error(error.message)
 }
 
+export async function deleteStaffUser(userId: string) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  const res = await fetch(`${FUNCTIONS_URL}/admin-delete-staff-user`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ user_id: userId }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Erro ao excluir usuário.')
+}
+
+export async function listCustomers() {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, phone, created_at, profiles(full_name), orders(id)')
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}
+
+// --- atribuição de eventos por usuário da equipe ---
+
+export async function listEventStaff(profileId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('event_staff').select('event_id').eq('profile_id', profileId)
+  if (error) throw error
+  return (data || []).map((r) => r.event_id)
+}
+
+export async function setEventStaff(profileId: string, eventIds: string[]) {
+  const { error: delErr } = await supabase.from('event_staff').delete().eq('profile_id', profileId)
+  if (delErr) throw delErr
+  if (eventIds.length === 0) return
+  const { error: insErr } = await supabase
+    .from('event_staff')
+    .insert(eventIds.map((event_id) => ({ event_id, profile_id: profileId })))
+  if (insErr) throw insErr
+}
+
+// --- editar/excluir cliente ---
+
+export async function editCustomer(customerId: string, fullName: string, phone: string) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const token = sessionData.session?.access_token
+  const res = await fetch(`${FUNCTIONS_URL}/admin-edit-customer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ customer_id: customerId, full_name: fullName, phone }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error || 'Erro ao editar cliente.')
+}
+
+export async function deleteCustomer(customerId: string) {
+  const { error } = await supabase.rpc('admin_delete_customer', { p_customer_id: customerId })
+  if (error) throw new Error(error.message)
+}
+
 export async function getEventReport(eventId: string): Promise<EventReport> {
   const { data, error } = await supabase.rpc('event_report', { p_event_id: eventId })
   if (error) throw new Error(error.message)

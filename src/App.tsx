@@ -17,7 +17,8 @@ import AdminDashboard from '@/pages/admin/AdminDashboard'
 import EventsPage from '@/pages/admin/EventsPage'
 import ProductsPage from '@/pages/admin/ProductsPage'
 import OrdersPage from '@/pages/admin/OrdersPage'
-import UsersPage from '@/pages/admin/UsersPage'
+import EquipePage from '@/pages/admin/EquipePage'
+import CustomersPage from '@/pages/admin/CustomersPage'
 import ReportsPage from '@/pages/admin/ReportsPage'
 import PasswordResetsPage from '@/pages/admin/PasswordResetsPage'
 import AuditLogPage from '@/pages/admin/AuditLogPage'
@@ -113,7 +114,8 @@ export default function App() {
             }
           >
             <Route index element={<EventsPage />} />
-            <Route path="usuarios" element={<UsersPage />} />
+            <Route path="equipe" element={<EquipePage />} />
+            <Route path="usuarios" element={<CustomersPage />} />
             <Route path="relatorios" element={<ReportsPage />} />
             <Route path="senhas" element={<PasswordResetsPage />} />
             <Route path="auditoria" element={<AuditLogPage />} />

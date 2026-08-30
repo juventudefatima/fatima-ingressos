@@ -22,6 +22,7 @@ const ACTION_LABELS: Record<string, string> = {
   'order_item.edit': '✏️ Item de pedido editado',
   'customer.create': '👤 Cliente cadastrado',
   'user.set_active': '🔒 Usuário bloqueado/desbloqueado',
+  'user.delete': '🗑️ Usuário excluído',
   'password_reset.resolve': '🔑 Senha redefinida',
 }
 

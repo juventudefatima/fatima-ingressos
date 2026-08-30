@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabaseClient'
 
 const tabs = [
   { to: '/admin', label: 'Eventos', end: true },
+  { to: '/admin/equipe', label: 'Equipe' },
   { to: '/admin/usuarios', label: 'Usuários' },
   { to: '/admin/relatorios', label: 'Relatórios' },
   { to: '/admin/senhas', label: 'Senhas' },

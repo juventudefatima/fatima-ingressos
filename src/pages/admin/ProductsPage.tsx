@@ -16,9 +16,11 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[] | null>(null)
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
+  const [stockLimit, setStockLimit] = useState('')
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editPrice, setEditPrice] = useState('')
+  const [editStock, setEditStock] = useState('')
 
   function reload() {
     listProductsByEvent(eventId).then(setProducts).catch((e) => toast.error(e.message))
@@ -35,11 +37,13 @@ export default function ProductsPage() {
       toast.error('Informe nome e preço válidos.')
       return
     }
+    const stockNum = stockLimit.trim() ? parseInt(stockLimit, 10) : null
     setSaving(true)
     try {
-      await createProduct({ event_id: eventId, name: name.trim(), price: priceNum })
+      await createProduct({ event_id: eventId, name: name.trim(), price: priceNum, stock_limit: stockNum })
       setName('')
       setPrice('')
+      setStockLimit('')
       reload()
     } catch (err) {
       toast.error((err as Error).message)
@@ -54,11 +58,12 @@ export default function ProductsPage() {
       toast.error('Preço inválido.')
       return
     }
+    const stockNum = editStock.trim() ? parseInt(editStock, 10) : null
     try {
-      await updateProduct(id, { price: priceNum })
+      await updateProduct(id, { price: priceNum, stock_limit: stockNum })
       setEditingId(null)
       reload()
-      toast.success('Preço atualizado. Pedidos antigos mantêm o valor histórico.')
+      toast.success('Produto atualizado. Pedidos antigos mantêm o valor histórico.')
     } catch (err) {
       toast.error((err as Error).message)
     }
@@ -78,8 +83,17 @@ export default function ProductsPage() {
           <div className="flex-1 min-w-[160px]">
             <Input label="Novo produto" value={name} onChange={(e) => setName(e.target.value)} placeholder="Hambúrguer" />
           </div>
-          <div className="w-32">
+          <div className="w-28">
             <Input label="Preço (R$)" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="15,00" inputMode="decimal" />
+          </div>
+          <div className="w-32">
+            <Input
+              label="Estoque (opcional)"
+              value={stockLimit}
+              onChange={(e) => setStockLimit(e.target.value)}
+              placeholder="Sem limite"
+              inputMode="numeric"
+            />
           </div>
           <Button type="submit" loading={saving}>Adicionar</Button>
         </form>
@@ -91,12 +105,18 @@ export default function ProductsPage() {
             <div className="flex-1">
               <p className="font-medium">{p.name}</p>
               {editingId === p.id ? (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <input
                     className="w-24 rounded-lg border border-line px-2 py-1 text-sm"
                     value={editPrice}
                     onChange={(e) => setEditPrice(e.target.value)}
                     autoFocus
+                  />
+                  <input
+                    className="w-28 rounded-lg border border-line px-2 py-1 text-sm"
+                    value={editStock}
+                    onChange={(e) => setEditStock(e.target.value)}
+                    placeholder="Sem limite"
                   />
                   <Button size="sm" onClick={() => saveEditedPrice(p.id)}>Salvar</Button>
                   <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancelar</Button>
@@ -104,9 +124,9 @@ export default function ProductsPage() {
               ) : (
                 <button
                   className="text-sm text-ink/50 underline decoration-dotted"
-                  onClick={() => { setEditingId(p.id); setEditPrice(String(p.price)) }}
+                  onClick={() => { setEditingId(p.id); setEditPrice(String(p.price)); setEditStock(p.stock_limit ? String(p.stock_limit) : '') }}
                 >
-                  {formatCurrency(p.price)} (editar)
+                  {formatCurrency(p.price)} · {p.stock_limit ? `limite: ${p.stock_limit}` : 'sem limite de estoque'} (editar)
                 </button>
               )}
             </div>

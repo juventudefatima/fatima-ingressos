@@ -11,7 +11,7 @@ export async function listProductsByEvent(eventId: string): Promise<Product[]> {
   return data as Product[]
 }
 
-export async function createProduct(input: { event_id: string; name: string; price: number; sort_order?: number }) {
+export async function createProduct(input: { event_id: string; name: string; price: number; sort_order?: number; stock_limit?: number | null }) {
   const { data, error } = await supabase.from('products').insert(input).select().single()
   if (error) throw error
   return data as Product

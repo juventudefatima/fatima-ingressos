@@ -33,6 +33,7 @@ export interface Product {
   price: number
   active: boolean
   sort_order: number
+  stock_limit: number | null
 }
 
 export interface TicketItemView {

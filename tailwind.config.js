@@ -19,8 +19,8 @@ export default {
         line: '#DCD6C9',
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
-        body: ['Inter', 'sans-serif'],
+        display: ['"Myriad Pro"', '"Space Grotesk"', 'sans-serif'],
+        body: ['"Myriad Pro"', 'Inter', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       borderRadius: {

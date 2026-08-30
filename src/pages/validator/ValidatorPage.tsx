@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser'
 import { supabase } from '@/lib/supabaseClient'
 import { getTicketForValidation, redeemTicketItems } from '@/services/tickets'
+import { listMyEvents } from '@/services/events'
 import type { EventItem, ValidationTicket } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -24,18 +25,15 @@ export default function ValidatorPage() {
   const controlsRef = useRef<IScannerControls | null>(null)
 
   useEffect(() => {
-    supabase
-      .from('events')
-      .select('*')
-      .neq('status', 'draft')
-      .order('event_date', { ascending: false })
-      .then(({ data, error }) => {
-        if (error) toast.error(error.message)
-        setEvents((data as EventItem[]) || [])
-        const today = (data as EventItem[] | null)?.find((e) => e.status === 'published')
+    listMyEvents()
+      .then((data) => {
+        const usable = data.filter((e) => e.status !== 'draft')
+        setEvents(usable)
+        const today = usable.find((e) => e.status === 'published')
         if (today) setEventId(today.id)
-        else if (data && data.length > 0) setEventId(data[0].id)
+        else if (usable.length > 0) setEventId(usable[0].id)
       })
+      .catch((err) => toast.error(err.message))
     return () => {
       controlsRef.current?.stop()
     }
