@@ -90,7 +90,7 @@ export default function OrdersPage() {
 
   return (
     <div className="space-y-4 max-w-2xl">
-      <a href="/admin" className="text-sm text-primary underline">← Voltar aos eventos</a>
+      <a href="/fatima-ingressos/admin" className="text-sm text-primary underline">← Voltar aos eventos</a>
       <h2 className="font-display font-bold text-xl">Pedidos</h2>
       <div className="grid gap-3">
         {orders.map((o) => (
