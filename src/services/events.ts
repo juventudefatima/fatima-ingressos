@@ -22,6 +22,8 @@ export async function createEvent(input: {
   event_time: string
   location: string
   status?: EventStatus
+  primary_color?: string | null
+  logo_url?: string | null
 }) {
   const { data: userData } = await supabase.auth.getUser()
   const { data, error } = await supabase
@@ -42,4 +44,15 @@ export async function updateEvent(id: string, input: Partial<EventItem>) {
 export async function deleteEvent(id: string) {
   const { error } = await supabase.from('events').delete().eq('id', id)
   if (error) throw error
+}
+
+// Envia o logo pro bucket público "event-logos" e devolve a URL pública
+// pra salvar em events.logo_url.
+export async function uploadEventLogo(eventId: string, file: File): Promise<string> {
+  const ext = file.name.split('.').pop()
+  const path = `${eventId}-${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from('event-logos').upload(path, file, { upsert: true })
+  if (error) throw error
+  const { data } = supabase.storage.from('event-logos').getPublicUrl(path)
+  return data.publicUrl
 }

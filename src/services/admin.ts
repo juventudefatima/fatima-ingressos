@@ -51,11 +51,41 @@ export async function deleteStaffUser(userId: string) {
   if (!res.ok) throw new Error(json.error || 'Erro ao excluir usuário.')
 }
 
-export async function listCustomers() {
+const CUSTOMERS_PAGE_SIZE = 50
+
+export async function listCustomers(offset = 0, search = '') {
+  const term = search.trim()
+
+  if (term) {
+    const digits = term.replace(/\D/g, '')
+    if (digits.length >= 3) {
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, phone, created_at, profiles(full_name), orders(id)')
+        .ilike('phone', `%${digits}%`)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data
+    }
+    // Busca por nome: o supabase-js não filtra fácil por coluna de tabela
+    // aninhada (profiles.full_name) direto no join, então trazemos até 200
+    // registros recentes e filtramos o nome no cliente.
+    const { data, error } = await supabase
+      .from('customers')
+      .select('id, phone, created_at, profiles(full_name), orders(id)')
+      .order('created_at', { ascending: false })
+      .limit(200)
+    if (error) throw error
+    const lower = term.toLowerCase()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (data || []).filter((c: any) => (c.profiles?.full_name || '').toLowerCase().includes(lower))
+  }
+
   const { data, error } = await supabase
     .from('customers')
     .select('id, phone, created_at, profiles(full_name), orders(id)')
     .order('created_at', { ascending: false })
+    .range(offset, offset + CUSTOMERS_PAGE_SIZE - 1)
   if (error) throw error
   return data
 }

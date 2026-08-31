@@ -50,6 +50,21 @@ Deno.serve(async (req) => {
       profileId = profile?.id ?? null
     }
 
+    // Rate limit: no máximo 3 solicitações por identificador a cada hora,
+    // pra ninguém conseguir spammar o admin de pedidos de reset. A resposta
+    // continua sendo a mesma de sempre (genérica), então quem está tentando
+    // nem percebe que foi bloqueado.
+    const umaHoraAtras = new Date(Date.now() - 60 * 60_000).toISOString()
+    const { count } = await admin
+      .from('password_reset_requests')
+      .select('id', { count: 'exact', head: true })
+      .eq('identifier', identifierToStore)
+      .gte('requested_at', umaHoraAtras)
+
+    if ((count || 0) >= 3) {
+      return genericResponse()
+    }
+
     await admin.from('password_reset_requests').insert({
       target_role: targetRole,
       identifier: identifierToStore,

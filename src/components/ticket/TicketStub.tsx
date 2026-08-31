@@ -14,8 +14,13 @@ export function TicketStub({ ticket }: { ticket: MyTicket }) {
 
   return (
     <div className="bg-white rounded-ticket shadow-card overflow-hidden border border-line/60">
-      <div className="bg-primary text-white px-6 py-5">
-        <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">{ticket.event_name}</p>
+      <div className="bg-primary text-white px-6 py-5" style={ticket.primary_color ? { backgroundColor: ticket.primary_color } : undefined}>
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">{ticket.event_name}</p>
+          {ticket.logo_url && (
+            <img src={ticket.logo_url} alt="" className="h-8 w-8 object-contain rounded bg-white/10 p-0.5" />
+          )}
+        </div>
         <div className="flex items-end justify-between mt-2">
           <div>
             <p className="font-display font-bold text-2xl leading-none">{formatDate(ticket.event_date)}</p>

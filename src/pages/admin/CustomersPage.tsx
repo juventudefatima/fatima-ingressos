@@ -12,6 +12,8 @@ import { formatPhone } from '@/utils/phone'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CustomerRow = any
 
+const PAGE_SIZE = 50
+
 function CustomerCard({ customer, onChanged }: { customer: CustomerRow; onChanged: () => void }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(customer.profiles?.full_name || '')
@@ -77,23 +79,43 @@ function CustomerCard({ customer, onChanged }: { customer: CustomerRow; onChange
 }
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<CustomerRow[] | null>(null)
+  const [customers, setCustomers] = useState<CustomerRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [search, setSearch] = useState('')
 
-  function reload() {
-    listCustomers().then(setCustomers).catch((e) => toast.error(e.message))
+  async function reload() {
+    setLoading(true)
+    try {
+      const data = await listCustomers(0, search)
+      setCustomers(data || [])
+      setHasMore(!search.trim() && (data?.length || 0) === PAGE_SIZE)
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setLoading(false)
+    }
   }
-  useEffect(reload, [])
 
-  if (customers === null) return <Loading label="Carregando clientes…" />
-  if (customers.length === 0) {
-    return <EmptyState title="Nenhum cliente cadastrado ainda" description="Clientes são cadastrados automaticamente na primeira compra." />
+  useEffect(() => {
+    const timeout = setTimeout(reload, 300) // debounce da busca
+    return () => clearTimeout(timeout)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search])
+
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    try {
+      const data = await listCustomers(customers.length, '')
+      setCustomers((prev) => [...prev, ...(data || [])])
+      setHasMore((data?.length || 0) === PAGE_SIZE)
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setLoadingMore(false)
+    }
   }
-
-  const filtered = customers.filter((c) => {
-    const term = search.replace(/\D/g, '') || search.toLowerCase()
-    return c.phone.includes(term) || (c.profiles?.full_name || '').toLowerCase().includes(search.toLowerCase())
-  })
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -103,12 +125,28 @@ export default function CustomersPage() {
         onChange={(e) => setSearch(e.target.value)}
         className="w-full border border-line rounded-xl px-4 py-2.5"
       />
-      <p className="text-sm text-ink/50">{filtered.length} de {customers.length} cliente(s)</p>
-      <div className="grid gap-2">
-        {filtered.map((c) => (
-          <CustomerCard key={c.id} customer={c} onChanged={reload} />
-        ))}
-      </div>
+
+      {loading ? (
+        <Loading label="Carregando clientes…" />
+      ) : customers.length === 0 ? (
+        <EmptyState title="Nenhum cliente encontrado" description="Clientes são cadastrados automaticamente na primeira compra." />
+      ) : (
+        <>
+          <p className="text-sm text-ink/50">{customers.length} cliente(s){hasMore ? '+' : ''}</p>
+          <div className="grid gap-2">
+            {customers.map((c) => (
+              <CustomerCard key={c.id} customer={c} onChanged={reload} />
+            ))}
+          </div>
+          {hasMore && (
+            <div className="text-center pt-2">
+              <Button variant="outline" size="sm" onClick={handleLoadMore} loading={loadingMore}>
+                Carregar mais
+              </Button>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabaseClient'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { Loading } from '@/components/ui/Loading'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { formatDateTime } from '@/utils/format'
@@ -14,6 +15,8 @@ interface AuditLog {
   created_at: string
 }
 
+const PAGE_SIZE = 50
+
 const ACTION_LABELS: Record<string, string> = {
   'sale.create': '🧾 Venda realizada',
   'ticket.redeem': '✅ Item entregue',
@@ -21,40 +24,62 @@ const ACTION_LABELS: Record<string, string> = {
   'order.cancel': '🚫 Pedido cancelado',
   'order_item.edit': '✏️ Item de pedido editado',
   'customer.create': '👤 Cliente cadastrado',
+  'customer.edit': '✏️ Cliente editado',
+  'customer.delete': '🗑️ Cliente excluído',
   'user.set_active': '🔒 Usuário bloqueado/desbloqueado',
   'user.delete': '🗑️ Usuário excluído',
   'password_reset.resolve': '🔑 Senha redefinida',
 }
 
 export default function AuditLogPage() {
-  const [logs, setLogs] = useState<AuditLog[] | null>(null)
+  const [logs, setLogs] = useState<AuditLog[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+  const loadedCountRef = useRef(0)
 
-  function reload() {
-    supabase
+  async function loadPage(offset: number, replace: boolean, count = PAGE_SIZE) {
+    const { data, error } = await supabase
       .from('audit_logs')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(200)
-      .then(({ data, error }) => {
-        if (error) toast.error(error.message)
-        else setLogs(data as AuditLog[])
-      })
+      .range(offset, offset + count - 1)
+    if (error) {
+      toast.error(error.message)
+      return
+    }
+    const rows = (data as AuditLog[]) || []
+    setHasMore(rows.length === count)
+    setLogs((prev) => (replace ? rows : [...prev, ...rows]))
+    loadedCountRef.current = replace ? rows.length : loadedCountRef.current + rows.length
   }
 
   useEffect(() => {
-    reload()
+    setLoading(true)
+    loadPage(0, true).finally(() => setLoading(false))
+
+    // Atualização automática: recarrega a MESMA quantidade que já estava
+    // na tela (via loadedCountRef), pra não desfazer um "Carregar mais"
+    // que o admin já tinha clicado.
+    const refresh = () => loadPage(0, true, Math.max(loadedCountRef.current, PAGE_SIZE))
     const channel = supabase
       .channel('audit-logs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, reload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'audit_logs' }, refresh)
       .subscribe()
-    const interval = setInterval(reload, 2000)
+    const interval = setInterval(refresh, 2000)
     return () => {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
   }, [])
 
-  if (logs === null) return <Loading label="Carregando auditoria…" />
+  async function handleLoadMore() {
+    setLoadingMore(true)
+    await loadPage(logs.length, false)
+    setLoadingMore(false)
+  }
+
+  if (loading) return <Loading label="Carregando auditoria…" />
   if (logs.length === 0) {
     return <EmptyState title="Nenhum registro ainda" description="Toda venda, entrega, cancelamento e reset de senha aparece aqui." />
   }
@@ -79,6 +104,13 @@ export default function AuditLogPage() {
           </div>
         </Card>
       ))}
+      {hasMore && (
+        <div className="text-center pt-2">
+          <Button variant="outline" size="sm" onClick={handleLoadMore} loading={loadingMore}>
+            Carregar mais
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

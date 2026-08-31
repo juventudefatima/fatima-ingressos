@@ -24,6 +24,8 @@ export interface EventItem {
   location: string
   status: EventStatus
   created_at: string
+  primary_color: string | null
+  logo_url: string | null
 }
 
 export interface Product {
@@ -55,6 +57,8 @@ export interface MyTicket {
   event_time: string
   location: string
   event_status: EventStatus
+  primary_color: string | null
+  logo_url: string | null
   items: TicketItemView[]
 }
 
