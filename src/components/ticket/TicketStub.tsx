@@ -13,7 +13,7 @@ export function TicketStub({ ticket }: { ticket: MyTicket }) {
   const st = statusLabel[ticket.status] || statusLabel.active
 
   return (
-    <div className="bg-white rounded-ticket shadow-card overflow-hidden border border-line/60">
+    <div className="bg-surface rounded-ticket shadow-card overflow-hidden border border-line/60">
       <div className="bg-primary text-white px-6 py-5" style={ticket.primary_color ? { backgroundColor: ticket.primary_color } : undefined}>
         <div className="flex items-center justify-between">
           <p className="text-xs uppercase tracking-widest text-white/70 font-semibold">{ticket.event_name}</p>

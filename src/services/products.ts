@@ -26,3 +26,16 @@ export async function updateProduct(id: string, input: Partial<Product>) {
 export async function toggleProductActive(id: string, active: boolean) {
   return updateProduct(id, { active })
 }
+
+// Usado na tela de Equipe para montar a lista de produtos elegíveis de um
+// conjunto de eventos (os eventos já atribuídos àquele caixa).
+export async function listProductsByEvents(eventIds: string[]): Promise<Product[]> {
+  if (eventIds.length === 0) return []
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .in('event_id', eventIds)
+    .order('sort_order', { ascending: true })
+  if (error) throw error
+  return data as Product[]
+}

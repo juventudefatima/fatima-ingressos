@@ -2,12 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Modo claro (padrão) — valores "R G B" sem vírgula pra funcionar com os
+   modificadores de opacidade do Tailwind (ex.: bg-ink/5, text-ink/70). */
+:root {
+  --color-ink: 18 35 31;
+  --color-paper: 247 245 241;
+  --color-surface: 255 255 255;
+  --color-primary: 15 107 92;
+  --color-primary-dark: 11 79 68;
+  --color-primary-light: 228 241 238;
+  --color-accent: 232 163 61;
+  --color-accent-dark: 201 127 30;
+  --color-danger: 179 38 30;
+  --color-line: 220 214 201;
+}
+
+/* Modo escuro — a classe "dark" é aplicada em <html> pelo ThemeContext
+   (e por um script inline no index.html, pra já nascer certa e não piscar
+   claro-depois-escuro no primeiro carregamento). */
+.dark {
+  color-scheme: dark;
+  --color-ink: 230 236 234;
+  --color-paper: 14 20 18;
+  --color-surface: 23 32 29;
+  --color-primary: 45 158 138;
+  --color-primary-dark: 94 196 178;
+  --color-primary-light: 20 48 43;
+  --color-accent: 232 163 61;
+  --color-accent-dark: 245 189 110;
+  --color-danger: 224 92 82;
+  --color-line: 51 66 61;
+}
+
 html, body, #root {
   height: 100%;
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 a, button {

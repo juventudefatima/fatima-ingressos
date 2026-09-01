@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { supabase } from '@/lib/supabaseClient'
 import { listProductsByEvent } from '@/services/products'
 import { listMyEvents } from '@/services/events'
+import { listCashierProducts } from '@/services/admin'
 import { findOrCreateCustomer, createSale } from '@/services/sales'
+import { useAuth } from '@/contexts/AuthContext'
 import type { EventItem, Product, PaymentMethod } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Select } from '@/components/ui/Select'
@@ -24,8 +25,10 @@ interface Receipt {
 }
 
 export default function CashierPage() {
+  const { profile } = useAuth()
   const [events, setEvents] = useState<EventItem[] | null>(null)
   const [eventId, setEventId] = useState('')
+  const [allowedProductIds, setAllowedProductIds] = useState<string[] | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [customerName, setCustomerName] = useState('')
@@ -42,15 +45,43 @@ export default function CashierPage() {
         if (published.length > 0) setEventId(published[0].id)
       })
       .catch((err) => toast.error(err.message))
-  }, [])
+
+    // Admin não tem restrição de produtos; só busca a lista pra caixa.
+    if (profile?.role === 'cashier') {
+      listCashierProducts(profile.id)
+        .then(setAllowedProductIds)
+        .catch((err) => toast.error(err.message))
+    } else {
+      setAllowedProductIds([])
+    }
+  }, [profile?.id, profile?.role])
 
   useEffect(() => {
     if (!eventId) return
     listProductsByEvent(eventId).then((list) => {
-      setProducts(list.filter((p) => p.active))
+      const active = list.filter((p) => p.active)
+      // Lista vazia em allowedProductIds = sem restrição cadastrada.
+      const filtered =
+        allowedProductIds && allowedProductIds.length > 0
+          ? active.filter((p) => allowedProductIds.includes(p.id))
+          : active
+      setProducts(filtered)
       setQuantities({})
     })
-  }, [eventId])
+  }, [eventId, allowedProductIds])
+
+  function welcomeWhatsappLink(name: string, phoneDigits: string, password: string): string {
+    const appUrl = `${window.location.origin}${import.meta.env.BASE_URL}login`
+    const message =
+      `Olá, ${name}! 👋 Seja bem-vindo(a) ao SI-DATA.\n\n` +
+      `Seu acesso pra ver seus ingressos:\n` +
+      `📱 Telefone: ${formatPhone(phoneDigits)}\n` +
+      `🔑 Senha inicial: ${password}\n\n` +
+      `Acesse por aqui: ${appUrl}\n` +
+      `Você pode trocar a senha assim que entrar.`
+    // 55 = código do Brasil; o wa.me exige o número completo com DDI.
+    return `https://wa.me/55${phoneDigits}?text=${encodeURIComponent(message)}`
+  }
 
   const total = useMemo(
     () => products.reduce((sum, p) => sum + (quantities[p.id] || 0) * p.price, 0),
@@ -137,7 +168,15 @@ export default function CashierPage() {
               <p className="font-semibold mb-1">📱 Avise o cliente — acesso aos ingressos:</p>
               <p>Telefone: <span className="font-mono">{formatPhone(receipt.customerPhone)}</span></p>
               <p>Senha inicial: <span className="font-mono font-semibold">{receipt.initialPassword}</span></p>
-              <p className="text-ink/60 mt-1">Ele poderá trocar a senha no primeiro acesso.</p>
+              <p className="text-ink/60 mt-1 mb-3">Ele poderá trocar a senha no primeiro acesso.</p>
+              <a
+                href={welcomeWhatsappLink(receipt.customerName, receipt.customerPhone, receipt.initialPassword)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-[#25D366] text-white font-display font-semibold px-4 py-2.5 hover:opacity-90 active:scale-[0.98] transition-all"
+              >
+                💬 Enviar boas-vindas por WhatsApp
+              </a>
             </div>
           )}
           <Button fullWidth onClick={() => setReceipt(null)}>Nova venda</Button>

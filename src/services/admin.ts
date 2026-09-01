@@ -108,6 +108,26 @@ export async function setEventStaff(profileId: string, eventIds: string[]) {
   if (insErr) throw insErr
 }
 
+// --- quais produtos um caixa específico pode vender ---
+// Sem nenhuma linha cadastrada = sem restrição (vende qualquer produto
+// ativo dos eventos atribuídos a ele). Ver supabase/sql/07_sales_limits.sql.
+
+export async function listCashierProducts(profileId: string): Promise<string[]> {
+  const { data, error } = await supabase.from('cashier_products').select('product_id').eq('profile_id', profileId)
+  if (error) throw error
+  return (data || []).map((r) => r.product_id)
+}
+
+export async function setCashierProducts(profileId: string, productIds: string[]) {
+  const { error: delErr } = await supabase.from('cashier_products').delete().eq('profile_id', profileId)
+  if (delErr) throw delErr
+  if (productIds.length === 0) return
+  const { error: insErr } = await supabase
+    .from('cashier_products')
+    .insert(productIds.map((product_id) => ({ product_id, profile_id: profileId })))
+  if (insErr) throw insErr
+}
+
 // --- editar/excluir cliente ---
 
 export async function editCustomer(customerId: string, fullName: string, phone: string) {

@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
-import { listStaff, createStaffUser, setUserActive, deleteStaffUser, listEventStaff, setEventStaff } from '@/services/admin'
+import {
+  listStaff,
+  createStaffUser,
+  setUserActive,
+  deleteStaffUser,
+  listEventStaff,
+  setEventStaff,
+  listCashierProducts,
+  setCashierProducts,
+} from '@/services/admin'
 import { listEvents } from '@/services/events'
-import type { Profile, EventItem } from '@/types'
+import { listProductsByEvents } from '@/services/products'
+import type { Profile, EventItem, Product } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -68,6 +78,79 @@ function EventAssignment({ user, events }: { user: Profile; events: EventItem[] 
             </label>
           ))}
           <Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProductAssignment({ user }: { user: Profile }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [products, setProducts] = useState<Product[] | null>(null)
+  const [selected, setSelected] = useState<string[]>([])
+  const [saving, setSaving] = useState(false)
+
+  async function toggleOpen() {
+    if (!open && products === null) {
+      setLoading(true)
+      try {
+        const eventIds = await listEventStaff(user.id)
+        const [prods, allowed] = await Promise.all([listProductsByEvents(eventIds), listCashierProducts(user.id)])
+        setProducts(prods)
+        setSelected(allowed)
+      } catch (err) {
+        toast.error((err as Error).message)
+        return
+      } finally {
+        setLoading(false)
+      }
+    }
+    setOpen(!open)
+  }
+
+  function toggleProduct(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]))
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    try {
+      await setCashierProducts(user.id, selected)
+      toast.success('Produtos atualizados.')
+      setOpen(false)
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-1">
+      <button className="text-xs text-primary font-semibold" onClick={toggleOpen}>
+        {open ? 'Fechar' : '🛍️ Quais produtos ele(a) pode vender'}
+      </button>
+      {open && (
+        <div className="mt-2 border border-line rounded-lg p-3 space-y-1.5 max-h-56 overflow-y-auto">
+          {loading && <p className="text-xs text-ink/50">Carregando…</p>}
+          {!loading && products?.length === 0 && (
+            <p className="text-xs text-ink/50">Atribua ao menos um evento a ele(a) primeiro, acima.</p>
+          )}
+          {!loading && products && products.length > 0 && (
+            <>
+              <p className="text-xs text-ink/50 mb-1">
+                Nenhum produto marcado = sem restrição (pode vender qualquer produto ativo dos eventos dele).
+              </p>
+              {products.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={selected.includes(p.id)} onChange={() => toggleProduct(p.id)} />
+                  {p.name}
+                </label>
+              ))}
+              <Button size="sm" onClick={handleSave} loading={saving}>Salvar</Button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -165,6 +248,7 @@ export default function EquipePage() {
               </div>
             </div>
             <EventAssignment user={u} events={events} />
+            {u.role === 'cashier' && <ProductAssignment user={u} />}
           </Card>
         ))}
         {users.length === 0 && <p className="text-sm text-ink/50">Nenhum usuário de equipe cadastrado ainda.</p>}

@@ -54,14 +54,14 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setMode('customer')}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'customer' ? 'bg-white shadow-sm' : 'text-ink/50'}`}
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'customer' ? 'bg-surface shadow-sm' : 'text-ink/50'}`}
             >
               Sou cliente
             </button>
             <button
               type="button"
               onClick={() => setMode('staff')}
-              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'staff' ? 'bg-white shadow-sm' : 'text-ink/50'}`}
+              className={`flex-1 rounded-lg py-2 text-sm font-semibold transition-colors ${mode === 'staff' ? 'bg-surface shadow-sm' : 'text-ink/50'}`}
             >
               Equipe do evento
             </button>

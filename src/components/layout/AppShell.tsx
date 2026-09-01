@@ -1,5 +1,6 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 import { Button } from '@/components/ui/Button'
 
 interface NavItem {
@@ -10,6 +11,7 @@ interface NavItem {
 
 export function AppShell({ navItems, children }: { navItems: NavItem[]; children: React.ReactNode }) {
   const { profile, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -20,7 +22,7 @@ export function AppShell({ navItems, children }: { navItems: NavItem[]; children
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-line">
+      <header className="sticky top-0 z-30 bg-surface/90 backdrop-blur border-b border-line">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="h-8 w-8 rounded-lg bg-primary text-white flex items-center justify-center font-display font-bold">
@@ -30,6 +32,14 @@ export function AppShell({ navItems, children }: { navItems: NavItem[]; children
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:block text-sm text-ink/60">{profile?.full_name}</span>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label="Alternar tema claro/escuro"
+              className="h-9 w-9 rounded-lg border border-line bg-surface hover:bg-primary-light flex items-center justify-center text-base"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               Sair
             </Button>

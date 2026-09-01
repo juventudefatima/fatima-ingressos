@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from '@/contexts/AuthContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ProtectedRoute, homeForRole } from '@/components/layout/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 import { Loading } from '@/components/ui/Loading'
@@ -8,6 +9,7 @@ import { Loading } from '@/components/ui/Loading'
 import LoginPage from '@/pages/auth/LoginPage'
 import ChangePasswordPage from '@/pages/auth/ChangePasswordPage'
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage'
+import ProfilePage from '@/pages/auth/ProfilePage'
 
 import MyTicketsPage from '@/pages/customer/MyTicketsPage'
 import CashierPage from '@/pages/cashier/CashierPage'
@@ -25,7 +27,12 @@ import AuditLogPage from '@/pages/admin/AuditLogPage'
 
 function CustomerShell() {
   return (
-    <AppShell navItems={[{ to: '/meus-tickets', label: 'Meus tickets', icon: '🎫' }]}>
+    <AppShell
+      navItems={[
+        { to: '/meus-tickets', label: 'Meus tickets', icon: '🎫' },
+        { to: '/perfil', label: 'Perfil', icon: '👤' },
+      ]}
+    >
       <MyTicketsPage />
     </AppShell>
   )
@@ -33,7 +40,12 @@ function CustomerShell() {
 
 function CashierShell() {
   return (
-    <AppShell navItems={[{ to: '/caixa', label: 'Vender', icon: '🧾' }]}>
+    <AppShell
+      navItems={[
+        { to: '/caixa', label: 'Vender', icon: '🧾' },
+        { to: '/perfil', label: 'Perfil', icon: '👤' },
+      ]}
+    >
       <CashierPage />
     </AppShell>
   )
@@ -41,7 +53,12 @@ function CashierShell() {
 
 function ValidatorShell() {
   return (
-    <AppShell navItems={[{ to: '/validador', label: 'Validar', icon: '📷' }]}>
+    <AppShell
+      navItems={[
+        { to: '/validador', label: 'Validar', icon: '📷' },
+        { to: '/perfil', label: 'Perfil', icon: '👤' },
+      ]}
+    >
       <ValidatorPage />
     </AppShell>
   )
@@ -52,9 +69,40 @@ function AdminShell() {
     <AppShell
       navItems={[
         { to: '/admin', label: 'Painel', icon: '📊' },
+        { to: '/perfil', label: 'Perfil', icon: '👤' },
       ]}
     >
       <AdminDashboard />
+    </AppShell>
+  )
+}
+
+// /perfil é uma única rota acessível a qualquer papel logado; escolhe o
+// conjunto de abas do topo de acordo com o papel pra manter a navegação
+// consistente com a tela de onde a pessoa veio.
+function ProfileShell() {
+  const { profile } = useAuth()
+  const navByRole: Record<string, { to: string; label: string; icon: string }[]> = {
+    admin: [
+      { to: '/admin', label: 'Painel', icon: '📊' },
+      { to: '/perfil', label: 'Perfil', icon: '👤' },
+    ],
+    cashier: [
+      { to: '/caixa', label: 'Vender', icon: '🧾' },
+      { to: '/perfil', label: 'Perfil', icon: '👤' },
+    ],
+    validator: [
+      { to: '/validador', label: 'Validar', icon: '📷' },
+      { to: '/perfil', label: 'Perfil', icon: '👤' },
+    ],
+    customer: [
+      { to: '/meus-tickets', label: 'Meus tickets', icon: '🎫' },
+      { to: '/perfil', label: 'Perfil', icon: '👤' },
+    ],
+  }
+  return (
+    <AppShell navItems={navByRole[profile?.role || 'customer']}>
+      <ProfilePage />
     </AppShell>
   )
 }
@@ -70,6 +118,7 @@ function RootRedirect() {
 export default function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
+      <ThemeProvider>
       <AuthProvider>
         <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
         <Routes>
@@ -77,6 +126,15 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
           <Route path="/trocar-senha" element={<ChangePasswordPage />} />
+
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute roles={['admin', 'cashier', 'validator', 'customer']}>
+                <ProfileShell />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/meus-tickets"
@@ -126,6 +184,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }
