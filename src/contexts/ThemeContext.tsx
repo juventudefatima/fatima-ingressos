@@ -15,7 +15,9 @@ function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'light'
   const stored = window.localStorage.getItem(STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // Padrão é sempre claro, independente da preferência do sistema — só muda
+  // se a pessoa apertar o botão de tema (aí sim fica salvo e é lembrado).
+  return 'light'
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

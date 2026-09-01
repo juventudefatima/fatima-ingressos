@@ -1,7 +1,16 @@
 export function Loading({ label = 'Carregando…' }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-16 text-ink/60">
-      <span className="h-8 w-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+      <div className="dot-spinner" role="status" aria-label={label}>
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+        <div className="dot-spinner__dot" />
+      </div>
       <p className="text-sm">{label}</p>
     </div>
   )

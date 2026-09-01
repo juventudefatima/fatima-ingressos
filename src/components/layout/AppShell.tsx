@@ -1,6 +1,6 @@
 import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTheme } from '@/contexts/ThemeContext'
+import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
 import { Button } from '@/components/ui/Button'
 
 interface NavItem {
@@ -11,7 +11,6 @@ interface NavItem {
 
 export function AppShell({ navItems, children }: { navItems: NavItem[]; children: React.ReactNode }) {
   const { profile, logout } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -32,14 +31,7 @@ export function AppShell({ navItems, children }: { navItems: NavItem[]; children
           </div>
           <div className="flex items-center gap-3">
             <span className="hidden sm:block text-sm text-ink/60">{profile?.full_name}</span>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              aria-label="Alternar tema claro/escuro"
-              className="h-9 w-9 rounded-lg border border-line bg-surface hover:bg-primary-light flex items-center justify-center text-base"
-            >
-              {theme === 'dark' ? '☀️' : '🌙'}
-            </button>
+            <ThemeSwitch />
             <Button variant="outline" size="sm" onClick={handleLogout}>
               Sair
             </Button>

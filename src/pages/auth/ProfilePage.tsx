@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/AuthContext'
-import { useTheme } from '@/contexts/ThemeContext'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
 import { formatPhone } from '@/utils/phone'
 
 const roleLabel: Record<string, string> = {
@@ -16,7 +16,6 @@ const roleLabel: Record<string, string> = {
 
 export default function ProfilePage() {
   const { profile, changePassword } = useAuth()
-  const { theme, toggleTheme } = useTheme()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [saving, setSaving] = useState(false)
@@ -63,9 +62,7 @@ export default function ProfilePage() {
             <p className="font-semibold text-sm">Aparência</p>
             <p className="text-xs text-ink/60">Escolha entre tema claro ou escuro.</p>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={toggleTheme}>
-            {theme === 'dark' ? '☀️ Claro' : '🌙 Escuro'}
-          </Button>
+          <ThemeSwitch />
         </div>
       </Card>
 

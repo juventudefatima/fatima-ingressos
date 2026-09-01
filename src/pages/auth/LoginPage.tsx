@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, Navigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,6 +13,17 @@ type Mode = 'customer' | 'staff'
 export default function LoginPage() {
   const { profile, loginCustomer, loginStaff } = useAuth()
   const navigate = useNavigate()
+
+  // Login sempre aparece no modo claro, mesmo que a pessoa já tenha
+  // escolhido o modo escuro antes — não mexe na preferência salva, só
+  // some visualmente enquanto essa tela está aberta.
+  useEffect(() => {
+    const wasDark = document.documentElement.classList.contains('dark')
+    document.documentElement.classList.remove('dark')
+    return () => {
+      if (wasDark) document.documentElement.classList.add('dark')
+    }
+  }, [])
   const [mode, setMode] = useState<Mode>('customer')
   const [phone, setPhone] = useState('')
   const [username, setUsername] = useState('')
