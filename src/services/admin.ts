@@ -187,3 +187,37 @@ export async function editOrderItem(orderItemId: string, newQuantity: number) {
   })
   if (error) throw new Error(error.message)
 }
+
+export async function uncancelOrder(orderId: string) {
+  const { error } = await supabase.rpc('admin_uncancel_order', { p_order_id: orderId })
+  if (error) throw new Error(error.message)
+}
+
+export async function addOrderItem(orderId: string, productId: string, quantity: number) {
+  const { error } = await supabase.rpc('admin_add_order_item', {
+    p_order_id: orderId,
+    p_product_id: productId,
+    p_quantity: quantity,
+  })
+  if (error) throw new Error(error.message)
+}
+
+export async function removeOrderItem(orderItemId: string) {
+  const { error } = await supabase.rpc('admin_remove_order_item', { p_order_item_id: orderItemId })
+  if (error) throw new Error(error.message)
+}
+
+// Estoque restante por produto (soma de todas as vendas, não só as do
+// caixa logado) — usado na tela de venda pra travar quantidade no limite.
+export interface StockStatus {
+  product_id: string
+  stock_limit: number | null
+  sold: number
+  remaining: number | null // null = sem limite cadastrado
+}
+
+export async function listStockStatus(eventId: string): Promise<StockStatus[]> {
+  const { data, error } = await supabase.rpc('list_stock_status', { p_event_id: eventId })
+  if (error) throw error
+  return data as StockStatus[]
+}

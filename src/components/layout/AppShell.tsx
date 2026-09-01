@@ -60,7 +60,7 @@ export function AppShell({ navItems, children }: { navItems: NavItem[]; children
         </div>
       </main>
       <footer className="text-center text-xs text-ink/40 py-4">
-        SI-DATA — Sistema de Ingressos Digitais · by Igor Cabral
+        SI-DATA — Sistema de Ingressos Digitais da Paróquia Nossa Senhora de Fátima
       </footer>
     </div>
   )

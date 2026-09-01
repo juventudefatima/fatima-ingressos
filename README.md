@@ -1,4 +1,4 @@
-# SI-DATA — Sistema de Ingressos Digitais (by Igor Cabral)
+# SI-DATA — Sistema de Ingressos Digitais da Paróquia Nossa Senhora de Fátima
 
 MVP completo de venda, emissão e validação de tickets digitais, pensado para
 rodar **de graça**: frontend estático no GitHub Pages + backend/dados no
@@ -94,10 +94,12 @@ conteúdo de cada arquivo da pasta `supabase/sql/`:
    então executa. Esse é o único administrador criado "na mão" — todos os
    outros usuários (caixa, validador, cliente) são criados pelo próprio
    sistema depois disso.
-5. `05_password_reset.sql`, `06_admin_improvements.sql` e
-   `07_sales_limits.sql` — melhorias incrementais (rate limit de login,
-   edição de item de pedido, atribuição de eventos/produtos por caixa e
-   limite de estoque). Execute todos, na ordem numérica.
+5. `05_password_reset.sql`, `06_admin_improvements.sql`,
+   `07_sales_limits.sql` e `08_stock_and_order_edit.sql` — melhorias
+   incrementais (rate limit de login, edição de item de pedido, atribuição
+   de eventos/produtos por caixa, limite de estoque, estoque em tempo real
+   no caixa e des-cancelar/editar pedido completo). Execute todos, na ordem
+   numérica.
 
 ### 3. Configurar o Auth
 

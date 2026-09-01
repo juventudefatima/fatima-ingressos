@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { listProductsByEvent } from '@/services/products'
 import { listMyEvents } from '@/services/events'
-import { listCashierProducts } from '@/services/admin'
+import { listCashierProducts, listStockStatus, type StockStatus } from '@/services/admin'
 import { findOrCreateCustomer, createSale } from '@/services/sales'
 import { useAuth } from '@/contexts/AuthContext'
 import type { EventItem, Product, PaymentMethod } from '@/types'
@@ -30,6 +30,7 @@ export default function CashierPage() {
   const [eventId, setEventId] = useState('')
   const [allowedProductIds, setAllowedProductIds] = useState<string[] | null>(null)
   const [products, setProducts] = useState<Product[]>([])
+  const [stock, setStock] = useState<Record<string, StockStatus>>({})
   const [quantities, setQuantities] = useState<Record<string, number>>({})
   const [customerName, setCustomerName] = useState('')
   const [phone, setPhone] = useState('')
@@ -56,6 +57,16 @@ export default function CashierPage() {
     }
   }, [profile?.id, profile?.role])
 
+  function reloadStock(evId: string) {
+    listStockStatus(evId)
+      .then((rows) => {
+        const map: Record<string, StockStatus> = {}
+        rows.forEach((r) => { map[r.product_id] = r })
+        setStock(map)
+      })
+      .catch((err) => toast.error(err.message))
+  }
+
   useEffect(() => {
     if (!eventId) return
     listProductsByEvent(eventId).then((list) => {
@@ -68,7 +79,15 @@ export default function CashierPage() {
       setProducts(filtered)
       setQuantities({})
     })
+    reloadStock(eventId)
   }, [eventId, allowedProductIds])
+
+  // Quanto ainda dá pra vender deste produto agora (null = sem limite).
+  function remainingFor(productId: string): number | null {
+    const s = stock[productId]
+    if (!s || s.remaining === null) return null
+    return s.remaining
+  }
 
   function welcomeWhatsappLink(name: string, phoneDigits: string, password: string): string {
     const appUrl = `${window.location.origin}${import.meta.env.BASE_URL}login`
@@ -90,7 +109,13 @@ export default function CashierPage() {
   const hasItems = Object.values(quantities).some((q) => q > 0)
 
   function updateQty(productId: string, delta: number) {
-    setQuantities((prev) => ({ ...prev, [productId]: Math.max(0, (prev[productId] || 0) + delta) }))
+    setQuantities((prev) => {
+      const current = prev[productId] || 0
+      const remaining = remainingFor(productId)
+      const max = remaining === null ? Infinity : remaining
+      const next = Math.max(0, Math.min(max, current + delta))
+      return { ...prev, [productId]: next }
+    })
   }
 
   async function handleFinish(e: React.FormEvent) {
@@ -132,6 +157,7 @@ export default function CashierPage() {
       setQuantities({})
       setCustomerName('')
       setPhone('')
+      reloadStock(eventId)
       toast.success('Venda realizada com sucesso!')
     } catch (err) {
       toast.error((err as Error).message)
@@ -198,31 +224,44 @@ export default function CashierPage() {
 
       <Card className="p-4 divide-y divide-line">
         {products.length === 0 && <p className="text-sm text-ink/50 py-4">Nenhum produto ativo para este evento.</p>}
-        {products.map((p) => (
-          <div key={p.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-            <div>
-              <p className="font-medium">{p.name}</p>
-              <p className="text-sm text-ink/50">{formatCurrency(p.price)}</p>
+        {products.map((p) => {
+          const remaining = remainingFor(p.id)
+          const qty = quantities[p.id] || 0
+          const soldOut = remaining !== null && remaining <= 0
+          const atMax = remaining !== null && qty >= remaining
+          return (
+            <div key={p.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
+              <div>
+                <p className="font-medium">{p.name}</p>
+                <p className="text-sm text-ink/50">{formatCurrency(p.price)}</p>
+                {remaining !== null && (
+                  <p className={`text-xs mt-0.5 font-medium ${soldOut ? 'text-danger' : 'text-primary-dark'}`}>
+                    {soldOut ? 'Esgotado' : `${remaining} disponíve${remaining === 1 ? 'l' : 'is'}`}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => updateQty(p.id, -1)}
+                  disabled={qty === 0}
+                  className="h-9 w-9 rounded-full bg-ink/5 text-lg font-bold active:scale-95 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <span className="w-6 text-center font-semibold">{qty}</span>
+                <button
+                  type="button"
+                  onClick={() => updateQty(p.id, 1)}
+                  disabled={soldOut || atMax}
+                  className="h-9 w-9 rounded-full bg-primary-light text-primary-dark text-lg font-bold active:scale-95 disabled:opacity-30"
+                >
+                  +
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => updateQty(p.id, -1)}
-                className="h-9 w-9 rounded-full bg-ink/5 text-lg font-bold active:scale-95"
-              >
-                −
-              </button>
-              <span className="w-6 text-center font-semibold">{quantities[p.id] || 0}</span>
-              <button
-                type="button"
-                onClick={() => updateQty(p.id, 1)}
-                className="h-9 w-9 rounded-full bg-primary-light text-primary-dark text-lg font-bold active:scale-95"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </Card>
 
       <Card className="p-4 flex items-center justify-between">

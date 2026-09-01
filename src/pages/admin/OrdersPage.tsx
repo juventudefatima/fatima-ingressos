@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { listOrdersByEvent, cancelOrder, editOrderItem } from '@/services/admin'
+import {
+  listOrdersByEvent,
+  cancelOrder,
+  editOrderItem,
+  uncancelOrder,
+  addOrderItem,
+  removeOrderItem,
+} from '@/services/admin'
+import { listProductsByEvent } from '@/services/products'
+import type { Product } from '@/types'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { Select } from '@/components/ui/Select'
 import { Badge } from '@/components/ui/Badge'
 import { Loading } from '@/components/ui/Loading'
 import { formatCurrency, formatDateTime } from '@/utils/format'
@@ -27,6 +37,20 @@ function OrderItemRow({ item, onSaved }: { item: OrderRow; onSaved: () => void }
       await editOrderItem(item.id, n)
       toast.success('Item atualizado.')
       setEditing(false)
+      onSaved()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleRemove() {
+    if (!confirm(`Remover "${item.product_name_snapshot}" deste pedido?`)) return
+    setSaving(true)
+    try {
+      await removeOrderItem(item.id)
+      toast.success('Item removido.')
       onSaved()
     } catch (err) {
       toast.error((err as Error).message)
@@ -62,7 +86,89 @@ function OrderItemRow({ item, onSaved }: { item: OrderRow; onSaved: () => void }
       <button className="text-primary text-xs font-semibold" onClick={() => setEditing(true)}>
         Editar
       </button>
+      <button className="text-danger text-xs font-semibold" onClick={handleRemove} disabled={saving}>
+        Remover
+      </button>
     </li>
+  )
+}
+
+function AddItemRow({ orderId, eventId, existingProductIds, onSaved }: {
+  orderId: string
+  eventId: string
+  existingProductIds: string[]
+  onSaved: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [products, setProducts] = useState<Product[] | null>(null)
+  const [productId, setProductId] = useState('')
+  const [qty, setQty] = useState('1')
+  const [saving, setSaving] = useState(false)
+
+  function toggleOpen() {
+    if (!open && products === null) {
+      listProductsByEvent(eventId)
+        .then((list) => {
+          const active = list.filter((p) => p.active)
+          setProducts(active)
+          if (active.length > 0) setProductId(active[0].id)
+        })
+        .catch((err) => toast.error(err.message))
+    }
+    setOpen(!open)
+  }
+
+  async function handleAdd() {
+    const n = parseInt(qty, 10)
+    if (!productId || !n || n <= 0) {
+      toast.error('Escolha um produto e uma quantidade válida.')
+      return
+    }
+    setSaving(true)
+    try {
+      await addOrderItem(orderId, productId, n)
+      toast.success('Item adicionado.')
+      setQty('1')
+      setOpen(false)
+      onSaved()
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="mt-2">
+      <button type="button" className="text-primary text-xs font-semibold" onClick={toggleOpen}>
+        {open ? 'Fechar' : '+ Adicionar item ao pedido'}
+      </button>
+      {open && (
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          {products === null && <p className="text-xs text-ink/50">Carregando produtos…</p>}
+          {products && products.length === 0 && <p className="text-xs text-ink/50">Nenhum produto ativo neste evento.</p>}
+          {products && products.length > 0 && (
+            <>
+              <Select value={productId} onChange={(e) => setProductId(e.target.value)} className="!w-auto text-sm">
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{existingProductIds.includes(p.id) ? ' (já no pedido)' : ''}
+                  </option>
+                ))}
+              </Select>
+              <input
+                type="number"
+                min={1}
+                value={qty}
+                onChange={(e) => setQty(e.target.value)}
+                className="w-16 border border-line rounded px-2 py-1.5 text-sm"
+              />
+              <Button size="sm" onClick={handleAdd} loading={saving}>Adicionar</Button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -80,6 +186,17 @@ export default function OrdersPage() {
     try {
       await cancelOrder(orderId)
       toast.success('Pedido cancelado.')
+      reload()
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  async function handleUncancel(orderId: string) {
+    if (!confirm('Reativar este pedido? O ticket volta a ficar válido.')) return
+    try {
+      await uncancelOrder(orderId)
+      toast.success('Pedido reativado.')
       reload()
     } catch (err) {
       toast.error((err as Error).message)
@@ -109,9 +226,19 @@ export default function OrdersPage() {
                 <OrderItemRow key={it.id} item={it} onSaved={reload} />
               ))}
             </ul>
-            <div className="flex justify-between items-center pt-2 border-t border-line">
+            {o.status !== 'cancelled' && (
+              <AddItemRow
+                orderId={o.id}
+                eventId={eventId}
+                existingProductIds={(o.order_items || []).map((it: OrderRow) => it.product_id)}
+                onSaved={reload}
+              />
+            )}
+            <div className="flex justify-between items-center pt-2 mt-2 border-t border-line">
               <span className="font-semibold">{formatCurrency(o.total)}</span>
-              {o.status !== 'cancelled' && (
+              {o.status === 'cancelled' ? (
+                <Button size="sm" variant="outline" onClick={() => handleUncancel(o.id)}>Reativar pedido</Button>
+              ) : (
                 <Button size="sm" variant="danger" onClick={() => handleCancel(o.id)}>Cancelar pedido</Button>
               )}
             </div>

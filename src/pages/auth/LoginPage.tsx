@@ -57,7 +57,7 @@ export default function LoginPage() {
             S
           </div>
           <h1 className="font-display font-bold text-2xl">SI-DATA</h1>
-          <p className="text-ink/60 text-sm mt-1">Sistema de Ingressos Digitais</p>
+          <p className="text-ink/60 text-sm mt-1">Sistema de Ingressos Digitais da Paróquia Nossa Senhora de Fátima</p>
         </div>
 
         <Card className="p-6">

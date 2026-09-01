@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon-192.png', 'icons/icon-512.png'],
       manifest: {
-        name: 'SI-DATA - Sistema de Ingressos Digitais',
+        name: 'SI-DATA - Sistema de Ingressos Digitais da Paróquia Nossa Senhora de Fátima',
         short_name: 'SI-DATA',
         description: 'Venda, emissão e validação de tickets digitais para eventos',
         theme_color: '#0F6B5C',
