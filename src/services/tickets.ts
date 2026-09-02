@@ -7,6 +7,29 @@ export async function getMyTickets(): Promise<MyTicket[]> {
   return data as MyTicket[]
 }
 
+// Token rotativo (~15 min) para o QR do ticket — ver 07_rotating_qr_code.sql
+export async function getRotatingTicketToken(ticketId: string): Promise<{ token: string; expires_at: string }> {
+  const { data, error } = await supabase.rpc('get_rotating_ticket_token', { p_ticket_id: ticketId })
+  if (error) throw new Error(error.message)
+  return data as { token: string; expires_at: string }
+}
+
+// Usado pelo Validador: tenta decifrar o valor escaneado como um token
+// rotativo. Se não for um token válido (ex: digitação manual do código
+// permanente "TKXXXXXXXXXX", ainda mais curto), devolve o valor original
+// sem erro — mantém 100% de compatibilidade com o fluxo antigo.
+export async function resolveScannedCode(raw: string): Promise<string> {
+  const trimmed = raw.trim()
+  if (trimmed.length <= 16) return trimmed
+  try {
+    const { data, error } = await supabase.rpc('resolve_rotating_token', { p_token: trimmed })
+    if (error) throw error
+    return data as string
+  } catch {
+    return trimmed
+  }
+}
+
 export async function getTicketForValidation(publicCode: string, eventId: string): Promise<ValidationTicket> {
   const { data, error } = await supabase.rpc('get_ticket_for_validation', {
     p_public_code: publicCode,
