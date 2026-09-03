@@ -1,6 +1,6 @@
 import type { MyTicket } from '@/types'
 import { formatDate, formatTime } from '@/utils/format'
-import { BarcodeDisplay } from './BarcodeDisplay'
+import { RotatingTicketQr } from './RotatingTicketQr'
 import { Badge } from '@/components/ui/Badge'
 
 const statusLabel: Record<string, { text: string; tone: 'success' | 'warning' | 'danger' }> = {
@@ -64,7 +64,7 @@ export function TicketStub({ ticket }: { ticket: MyTicket }) {
           ) : ticket.status === 'fully_redeemed' ? (
             <p className="text-center text-ink/60 text-sm py-6">Ticket utilizado.</p>
           ) : ticket.public_code ? (
-            <BarcodeDisplay value={ticket.public_code} />
+            <RotatingTicketQr ticketId={ticket.id} />
           ) : null}
         </div>
       </div>
