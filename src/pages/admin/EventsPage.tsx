@@ -19,7 +19,7 @@ const statusLabel: Record<EventStatus, string> = {
 }
 
 const DEFAULT_COLOR = '#0F6B5C'
-const emptyForm = { name: '', description: '', event_date: '', event_time: '', location: '', primary_color: DEFAULT_COLOR }
+const emptyForm = { name: '', description: '', event_date: '', event_time: '', location: '', primary_color: DEFAULT_COLOR, allow_offline: false }
 
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[] | null>(null)
@@ -47,6 +47,7 @@ export default function EventsPage() {
     setForm({
       name: ev.name, description: ev.description || '', event_date: ev.event_date,
       event_time: ev.event_time, location: ev.location, primary_color: ev.primary_color || DEFAULT_COLOR,
+      allow_offline: ev.allow_offline || false,
     })
     setLogoFile(null)
     setLogoPreview(ev.logo_url || null)
@@ -154,6 +155,22 @@ export default function EventsPage() {
               <img src={logoPreview} alt="Prévia do logo" className="h-16 object-contain rounded-lg border border-line p-1" />
             )}
 
+            <label className="flex items-start gap-3 bg-paper rounded-xl p-4 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-5 w-5 rounded border-line accent-primary"
+                checked={form.allow_offline}
+                onChange={(e) => setForm({ ...form, allow_offline: e.target.checked })}
+              />
+              <span>
+                <span className="block font-medium text-sm">Permitir modo offline neste evento</span>
+                <span className="block text-xs text-ink/50 mt-0.5">
+                  Caixa e Validador podem continuar funcionando sem internet, sincronizando depois.
+                  Ative só se souber que a conexão do local pode falhar.
+                </span>
+              </span>
+            </label>
+
             <div className="flex gap-3">
               <Button type="submit" loading={saving}>Salvar</Button>
               <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
@@ -172,6 +189,7 @@ export default function EventsPage() {
                   <span className="h-3 w-3 rounded-full border border-line/50" style={{ backgroundColor: ev.primary_color || DEFAULT_COLOR }} />
                   <p className="font-semibold">{ev.name}</p>
                   <Badge tone={statusTone[ev.status]}>{statusLabel[ev.status]}</Badge>
+                  {ev.allow_offline && <Badge tone="neutral">Offline ativado</Badge>}
                 </div>
                 <p className="text-sm text-ink/50">
                   {formatDate(ev.event_date)} · {formatTime(ev.event_time)} · {ev.location}

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser'
 import { supabase } from '@/lib/supabaseClient'
-import { getTicketForValidation, redeemTicketItems } from '@/services/tickets'
+import { getTicketForValidation, redeemTicketItems, exportEventTicketsForOffline } from '@/services/tickets'
 import { listMyEvents } from '@/services/events'
 import type { EventItem, ValidationTicket } from '@/types'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +10,10 @@ import { Select } from '@/components/ui/Select'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Loading } from '@/components/ui/Loading'
+import { useOnlineStatus } from '@/hooks/useOnlineStatus'
+import { offlineDb, newLocalId, type PendingRedemption, type TicketSnapshotEntry } from '@/lib/offlineDb'
+
+const SNAPSHOT_REFRESH_MS = 30_000
 
 export default function ValidatorPage() {
   const [events, setEvents] = useState<EventItem[] | null>(null)
@@ -17,12 +21,19 @@ export default function ValidatorPage() {
   const [cameraOn, setCameraOn] = useState(false)
   const [manualCode, setManualCode] = useState('')
   const [ticket, setTicket] = useState<ValidationTicket | null>(null)
+  const [ticketIsOfflineData, setTicketIsOfflineData] = useState(false)
   const [selections, setSelections] = useState<Record<string, number>>({})
   const [loadingTicket, setLoadingTicket] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [syncing, setSyncing] = useState(false)
 
   const videoRef = useRef<HTMLVideoElement>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
+
+  const isOnline = useOnlineStatus()
+  const currentEvent = events?.find((e) => e.id === eventId) || null
+  const offlineAllowed = currentEvent?.allow_offline === true
 
   useEffect(() => {
     listMyEvents()
@@ -38,6 +49,63 @@ export default function ValidatorPage() {
       controlsRef.current?.stop()
     }
   }, [])
+
+  // Enquanto online e o evento permite offline, mantém uma "foto" recente
+  // dos tickets salva localmente — é o que o Validador usa se cair a rede.
+  useEffect(() => {
+    if (!eventId || !offlineAllowed || !isOnline) return
+    let cancelled = false
+    async function refreshSnapshot() {
+      try {
+        const data = await exportEventTicketsForOffline(eventId)
+        if (!cancelled) await offlineDb.saveTicketSnapshot(eventId, data as TicketSnapshotEntry[])
+      } catch (err) {
+        console.error('Falha ao atualizar foto offline dos tickets', err)
+      }
+    }
+    void refreshSnapshot()
+    const interval = setInterval(refreshSnapshot, SNAPSHOT_REFRESH_MS)
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [eventId, offlineAllowed, isOnline])
+
+  function refreshPendingCount() {
+    offlineDb.listPendingRedemptions().then((list) => setPendingCount(list.filter((r) => r.event_id === eventId).length))
+  }
+  useEffect(refreshPendingCount, [eventId])
+
+  useEffect(() => {
+    if (isOnline) void syncPendingRedemptions()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline])
+
+  async function syncPendingRedemptions() {
+    const pending = await offlineDb.listPendingRedemptions()
+    if (pending.length === 0) return
+    setSyncing(true)
+    let okCount = 0
+    let failCount = 0
+    for (const r of pending) {
+      try {
+        await redeemTicketItems(r.public_code, r.event_id, r.items)
+        await offlineDb.removePendingRedemption(r.localId)
+        okCount++
+      } catch (err) {
+        // Fica na fila pra revisão manual — pode ser um conflito real (dois
+        // validadores offline entregaram o mesmo item), não descarta sozinho.
+        failCount++
+        console.error('Falha ao sincronizar entrega pendente', r.localId, err)
+      }
+    }
+    setSyncing(false)
+    refreshPendingCount()
+    if (okCount > 0) toast.success(`${okCount} entrega(s) offline sincronizada(s).`)
+    if (failCount > 0) {
+      toast.error(`${failCount} entrega(s) offline com conflito — confira manualmente (pode ter sido entregue duas vezes).`)
+    }
+  }
 
   async function startCamera() {
     setCameraOn(true)
@@ -62,6 +130,40 @@ export default function ValidatorPage() {
     setCameraOn(false)
   }
 
+  // Monta um ValidationTicket a partir da foto offline salva localmente,
+  // já descontando o que este mesmo dispositivo já entregou offline (mas
+  // que ainda não sincronizou) — pra não deixar entregar duas vezes no
+  // mesmo aparelho enquanto sem internet.
+  async function lookupTicketOffline(code: string): Promise<ValidationTicket | null> {
+    const snapshot = await offlineDb.getTicketSnapshot(eventId)
+    if (!snapshot) return null
+    const found = snapshot.tickets.find((t) => t.public_code === code.trim().toUpperCase())
+    if (!found) return null
+
+    const pending = await offlineDb.listPendingRedemptions()
+    const alreadyQueued: Record<string, number> = {}
+    for (const p of pending) {
+      if (p.public_code !== found.public_code) continue
+      for (const it of p.items) {
+        alreadyQueued[it.ticket_item_id] = (alreadyQueued[it.ticket_item_id] || 0) + it.quantity
+      }
+    }
+
+    return {
+      ticket_id: found.ticket_id,
+      public_code: found.public_code,
+      status: 'active',
+      event_name: found.event_name,
+      items: found.items.map((it) => ({
+        ticket_item_id: it.ticket_item_id,
+        product_name: it.product_name,
+        quantity_purchased: it.quantity_purchased,
+        quantity_redeemed: it.quantity_redeemed + (alreadyQueued[it.ticket_item_id] || 0),
+        available: it.quantity_purchased - it.quantity_redeemed - (alreadyQueued[it.ticket_item_id] || 0),
+      })),
+    }
+  }
+
   async function lookupTicket(code: string) {
     if (!eventId) {
       toast.error('Selecione o evento primeiro.')
@@ -69,10 +171,25 @@ export default function ValidatorPage() {
     }
     setLoadingTicket(true)
     setTicket(null)
+    setTicketIsOfflineData(false)
     setSelections({})
     try {
-      const result = await getTicketForValidation(code, eventId)
-      setTicket(result)
+      if (isOnline) {
+        const result = await getTicketForValidation(code, eventId)
+        setTicket(result)
+      } else {
+        if (!offlineAllowed) {
+          toast.error('Sem internet e este evento não tem modo offline habilitado.')
+          return
+        }
+        const result = await lookupTicketOffline(code)
+        if (!result) {
+          toast.error('Ticket não encontrado na última foto salva. Só é possível conferir tickets que já existiam quando a internet caiu.')
+          return
+        }
+        setTicket(result)
+        setTicketIsOfflineData(true)
+      }
     } catch (err) {
       toast.error((err as Error).message)
     } finally {
@@ -80,17 +197,12 @@ export default function ValidatorPage() {
     }
   }
 
-  // Usado pelo Realtime/polling: atualiza só as quantidades disponíveis do
-  // ticket já aberto, SEM mexer nas quantidades que o validador já estava
-  // selecionando pra entregar (senão o operador perderia a seleção a cada
-  // atualização automática).
   async function refreshTicketSilently(code: string) {
     try {
       const result = await getTicketForValidation(code, eventId)
       setTicket(result)
     } catch {
-      // silencioso de propósito — erro aqui não deve interromper o trabalho
-      // do validador; a próxima ação manual dele vai revalidar tudo de novo.
+      // silencioso de propósito
     }
   }
 
@@ -119,10 +231,26 @@ export default function ValidatorPage() {
     }
     setConfirming(true)
     try {
-      await redeemTicketItems(ticket.public_code, eventId, items)
-      toast.success('Entrega confirmada!')
-      await lookupTicket(ticket.public_code)
-      setSelections({})
+      if (ticketIsOfflineData) {
+        const pending: PendingRedemption = {
+          localId: newLocalId(),
+          event_id: eventId,
+          public_code: ticket.public_code,
+          items,
+          created_at: new Date().toISOString(),
+        }
+        await offlineDb.addPendingRedemption(pending)
+        toast.success('Entrega confirmada offline — vai sincronizar quando a internet voltar.')
+        refreshPendingCount()
+        const refreshed = await lookupTicketOffline(ticket.public_code)
+        setTicket(refreshed)
+        setSelections({})
+      } else {
+        await redeemTicketItems(ticket.public_code, eventId, items)
+        toast.success('Entrega confirmada!')
+        await lookupTicket(ticket.public_code)
+        setSelections({})
+      }
     } catch (err) {
       toast.error((err as Error).message)
     } finally {
@@ -132,14 +260,12 @@ export default function ValidatorPage() {
 
   function scanAnother() {
     setTicket(null)
+    setTicketIsOfflineData(false)
     setSelections({})
   }
 
   useEffect(() => {
-    if (!ticket) return
-    // Se outro validador confirmar entrega deste mesmo ticket enquanto esta
-    // tela está aberta, atualiza as quantidades disponíveis na hora — sem
-    // apagar o que este validador já estava selecionando pra entregar.
+    if (!ticket || ticketIsOfflineData) return
     const channel = supabase
       .channel(`ticket-${ticket.ticket_id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ticket_items' }, () => {
@@ -147,7 +273,6 @@ export default function ValidatorPage() {
       })
       .subscribe()
 
-    // Reforço: no máximo 2s de atraso mesmo sem o evento do Realtime.
     const interval = setInterval(() => {
       void refreshTicketSilently(ticket.public_code)
     }, 2000)
@@ -157,13 +282,31 @@ export default function ValidatorPage() {
       clearInterval(interval)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticket?.ticket_id])
+  }, [ticket?.ticket_id, ticketIsOfflineData])
 
   if (events === null) return <Loading label="Carregando eventos…" />
 
   return (
     <div className="max-w-md mx-auto space-y-5">
-      <h1 className="font-display font-bold text-2xl">Validar ticket</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="font-display font-bold text-2xl">Validar ticket</h1>
+        {offlineAllowed && (
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              isOnline ? 'bg-primary-light text-primary-dark' : 'bg-danger/10 text-danger'
+            }`}
+          >
+            {isOnline ? '● Online' : '○ Offline'}
+          </span>
+        )}
+      </div>
+
+      {syncing && <div className="bg-primary-light text-primary-dark text-sm rounded-xl p-3">Sincronizando entregas pendentes…</div>}
+      {pendingCount > 0 && !syncing && (
+        <div className="bg-accent/10 text-accent-dark text-sm rounded-xl p-3">
+          {pendingCount} entrega(s) offline aguardando sincronizar.
+        </div>
+      )}
 
       <Select label="Evento" value={eventId} onChange={(e) => { setEventId(e.target.value); setTicket(null) }}>
         {events.map((ev) => (
@@ -208,6 +351,11 @@ export default function ValidatorPage() {
 
       {ticket && (
         <Card className="p-5 space-y-4">
+          {ticketIsOfflineData && (
+            <div className="bg-danger/10 text-danger text-xs font-semibold rounded-lg p-2.5 text-center">
+              ⚠️ MODO OFFLINE — não confirmado em tempo real com o servidor
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <p className="font-mono font-bold text-lg">{ticket.public_code}</p>
             <span className="text-xs text-ink/50">{ticket.event_name}</span>

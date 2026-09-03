@@ -52,3 +52,18 @@ export async function redeemTicketItems(
   if (error) throw new Error(error.message)
   return data
 }
+
+// Usado só pelo Validador em eventos com modo offline habilitado: baixa uma
+// "foto" de todos os tickets ativos do evento, pra conseguir conferir mesmo
+// sem internet. Não deve ser chamado em eventos sem allow_offline = true
+// (a função no banco recusa e lança erro nesse caso).
+export async function exportEventTicketsForOffline(eventId: string) {
+  const { data, error } = await supabase.rpc('export_event_tickets_for_offline', { p_event_id: eventId })
+  if (error) throw new Error(error.message)
+  return data as {
+    public_code: string
+    ticket_id: string
+    event_name: string
+    items: { ticket_item_id: string; product_name: string; quantity_purchased: number; quantity_redeemed: number }[]
+  }[]
+}

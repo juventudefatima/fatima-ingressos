@@ -26,6 +26,7 @@ export interface EventItem {
   created_at: string
   primary_color: string | null
   logo_url: string | null
+  allow_offline: boolean
 }
 
 export interface Product {
