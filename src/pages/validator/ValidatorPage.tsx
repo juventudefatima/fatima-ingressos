@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser'
 import { supabase } from '@/lib/supabaseClient'
-import { getTicketForValidation, redeemTicketItems, exportEventTicketsForOffline } from '@/services/tickets'
+import { getTicketForValidation, redeemTicketItems, exportEventTicketsForOffline, resolveScannedCode } from '@/services/tickets'
 import { listMyEvents } from '@/services/events'
 import type { EventItem, ValidationTicket } from '@/types'
 import { Card } from '@/components/ui/Card'
@@ -134,10 +134,22 @@ export default function ValidatorPage() {
   // já descontando o que este mesmo dispositivo já entregou offline (mas
   // que ainda não sincronizou) — pra não deixar entregar duas vezes no
   // mesmo aparelho enquanto sem internet.
+  // Offline não dá pra chamar resolve_rotating_token no banco (precisa de
+  // rede), mas o token rotativo já traz o ticket_id embutido no começo
+  // (formato "<ticket_id>.<janela>.<assinatura>"), então dá pra casar
+  // direto por ticket_id. Digitação manual do código curto (sem pontos)
+  // continua batendo por public_code, como sempre.
   async function lookupTicketOffline(code: string): Promise<ValidationTicket | null> {
     const snapshot = await offlineDb.getTicketSnapshot(eventId)
     if (!snapshot) return null
-    const found = snapshot.tickets.find((t) => t.public_code === code.trim().toUpperCase())
+
+    const trimmed = code.trim()
+    const parts = trimmed.split('.')
+    const looksLikeRotatingToken = parts.length === 3 && /^[0-9a-f-]{36}$/i.test(parts[0])
+
+    const found = looksLikeRotatingToken
+      ? snapshot.tickets.find((t) => t.ticket_id === parts[0])
+      : snapshot.tickets.find((t) => t.public_code === trimmed.toUpperCase())
     if (!found) return null
 
     const pending = await offlineDb.listPendingRedemptions()
@@ -175,7 +187,12 @@ export default function ValidatorPage() {
     setSelections({})
     try {
       if (isOnline) {
-        const result = await getTicketForValidation(code, eventId)
+        // O QR do cliente mostra um token ROTATIVO (muda a cada ~15min), não
+        // o código permanente do ticket. Precisa traduzir um pro outro antes
+        // de buscar — digitação manual do código curto continua funcionando
+        // igual (resolveScannedCode devolve o valor original nesse caso).
+        const realCode = await resolveScannedCode(code)
+        const result = await getTicketForValidation(realCode, eventId)
         setTicket(result)
       } else {
         if (!offlineAllowed) {
