@@ -20,14 +20,19 @@ export async function getRotatingTicketToken(ticketId: string): Promise<{ token:
 // sem erro — mantém 100% de compatibilidade com o fluxo antigo.
 export async function resolveScannedCode(raw: string): Promise<string> {
   const trimmed = raw.trim()
-  if (trimmed.length <= 16) return trimmed
-  try {
-    const { data, error } = await supabase.rpc('resolve_rotating_token', { p_token: trimmed })
-    if (error) throw error
-    return data as string
-  } catch {
-    return trimmed
-  }
+  // Um código digitado manualmente ("TKXXXXXXXXXX") é curto e não tem
+  // pontos; um token rotativo escaneado do QR sempre tem 3 partes
+  // separadas por ponto. Só tenta traduzir quando parece mesmo um token.
+  const looksLikeRotatingToken = trimmed.split('.').length === 3
+  if (!looksLikeRotatingToken) return trimmed
+
+  // IMPORTANTE: não escondemos mais o erro aqui. Se a tradução falhar,
+  // deixamos o erro real subir (código expirado, inválido, etc) em vez de
+  // mascarar tudo como "Ticket não encontrado" — isso ajuda a diagnosticar
+  // o problema de verdade em vez de esconder ele.
+  const { data, error } = await supabase.rpc('resolve_rotating_token', { p_token: trimmed })
+  if (error) throw new Error(error.message)
+  return data as string
 }
 
 export async function getTicketForValidation(publicCode: string, eventId: string): Promise<ValidationTicket> {

@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ProtectedRoute, homeForRole } from '@/components/layout/ProtectedRoute'
 import { AppShell } from '@/components/layout/AppShell'
 import { Loading } from '@/components/ui/Loading'
+import { InstallPwaPrompt } from '@/components/ui/InstallPwaPrompt'
 
 import LoginPage from '@/pages/auth/LoginPage'
 import ChangePasswordPage from '@/pages/auth/ChangePasswordPage'
@@ -121,6 +122,7 @@ export default function App() {
       <ThemeProvider>
       <AuthProvider>
         <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
+        <InstallPwaPrompt />
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
